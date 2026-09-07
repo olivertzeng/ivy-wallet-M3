@@ -1,7 +1,5 @@
 plugins {
     id("com.android.library")
-    id("kotlin-android")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -12,12 +10,9 @@ android {
         targetCompatibility = JavaVersion.valueOf("VERSION_$javaVersion")
     }
 
-    kotlinOptions {
-        jvmTarget = javaVersion
-    }
-
     // Android
     compileSdk = catalog.version("compile-sdk").toInt()
+    buildToolsVersion = catalog.version("build-tools")
     defaultConfig {
         minSdk = catalog.version("min-sdk").toInt()
     }

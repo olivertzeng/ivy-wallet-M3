@@ -70,6 +70,7 @@ class EditPlannedViewModel @Inject constructor(
     private var category by mutableStateOf<Category?>(null)
     private var amount by mutableDoubleStateOf(0.0)
     private var currency by mutableStateOf("")
+    private var accountBaseCurrency by mutableStateOf("")
     private var categories by mutableStateOf<ImmutableList<Category>>(persistentListOf())
     private var accounts by mutableStateOf<ImmutableList<Account>>(persistentListOf())
     private var categoryModalVisible by mutableStateOf(false)
@@ -89,6 +90,7 @@ class EditPlannedViewModel @Inject constructor(
     override fun uiState(): EditPlannedScreenState {
         return EditPlannedScreenState(
             currency = getCurrency(),
+            accountBaseCurrency = accountBaseCurrency,
             categories = getCategories(),
             accounts = getAccounts(),
             transactionType = getTransactionType(),
@@ -265,6 +267,7 @@ class EditPlannedViewModel @Inject constructor(
 
     fun start(screen: EditPlannedScreen) {
         viewModelScope.launch {
+            accountBaseCurrency = baseCurrency()
             transactionType = screen.type
             editMode = screen.plannedPaymentRuleId != null
 

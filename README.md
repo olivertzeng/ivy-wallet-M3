@@ -102,7 +102,7 @@ This is a personal fork of the now-archived [Ivy-Apps/ivy-wallet](https://github
 
 ## CI / Auto-Release (GitHub Actions)
 
-Workflows run on every push to `main` and on pull requests. All jobs use **Temurin Java 17** (matching the build's JVM target), and each CI workflow cancels superseded runs on the same branch/PR (`concurrency` + `cancel-in-progress`) for faster feedback and fewer wasted minutes.
+Workflows run on every push to `main` and on pull requests. All jobs use **Temurin Java 21** for the Gradle and screenshot-test tooling (the app's JVM bytecode target remains 17), and each CI workflow cancels superseded runs on the same branch/PR (`concurrency` + `cancel-in-progress`) for faster feedback and fewer wasted minutes.
 
 ### Release flow — one click
 
@@ -169,19 +169,19 @@ own data. Tokens are stored locally in DataStore; nothing is sent anywhere excep
 
 ## Building
 
-**Requirements:** Java 17, Android SDK (API 35), Android Studio Meerkat or later.
+**Requirements:** Java 21, Android 17 SDK (API 37.0), SDK Build Tools 37.0.0, and Android Studio Panda 3 Patch 1 or later. The Gradle wrapper supplies Gradle 9.3.1 with Android Gradle Plugin 9.1.1. Minimum supported Android remains API 28 (Android 9).
 
 ```bash
 # Debug build
-JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk \
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 ANDROID_HOME=~/Library/Android/sdk \
   ./gradlew :app:assembleDebug --no-configuration-cache
 
 # Release-quality build (minified, debug-signed)
-JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk \
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 ANDROID_HOME=~/Library/Android/sdk \
   ./gradlew :app:assembleDemo --no-configuration-cache
 
 # Install on connected device
-JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=~/Library/Android/sdk \
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 ANDROID_HOME=~/Library/Android/sdk \
   ./gradlew :app:installDebug --no-configuration-cache
 ```
 

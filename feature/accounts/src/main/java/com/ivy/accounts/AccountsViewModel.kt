@@ -10,27 +10,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.SharedPrefs
-import com.ivy.base.legacy.Transaction
-import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
-import com.ivy.data.model.AccountId
 import com.ivy.data.repository.AccountRepository
-import com.ivy.data.repository.TransactionRepository
-import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.data.model.AccountData
 import com.ivy.legacy.data.model.toCloseTimeRange
-import com.ivy.legacy.datamodel.temp.toDomain
 import com.ivy.legacy.domain.deprecated.logic.AccountCreator
 import com.ivy.legacy.utils.format
 import com.ivy.legacy.utils.ioThread
 import com.ivy.ui.ComposeViewModel
 import com.ivy.ui.R
-import com.ivy.wallet.domain.deprecated.logic.WalletAccountLogic
 import com.ivy.wallet.domain.action.settings.BaseCurrencyAct
 import com.ivy.wallet.domain.action.viewmodel.account.AccountDataAct
 import com.ivy.wallet.domain.action.wallet.CalcWalletBalanceAct
@@ -56,14 +49,12 @@ class AccountsViewModel @Inject constructor(
     private val baseCurrencyAct: BaseCurrencyAct,
     private val accountDataAct: AccountDataAct,
     private val accountRepository: AccountRepository,
-    private val transactionRepository: TransactionRepository,
-    private val transactionMapper: TransactionMapper,
     private val accountCreator: AccountCreator,
-    private val walletAccountLogic: WalletAccountLogic,
     private val dataObserver: DataObserver,
     private val features: Features,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val creditCardService: com.ivy.legacy.domain.CreditCardService,
 ) : ComposeViewModel<AccountsState, AccountsEvent>() {
     private var baseCurrency by mutableStateOf("")
     private var accountsData by mutableStateOf(listOf<AccountData>())
@@ -72,6 +63,9 @@ class AccountsViewModel @Inject constructor(
     private var totalBalanceWithoutExcluded by mutableStateOf("")
     private var totalBalanceWithoutExcludedText by mutableStateOf("")
     private var reorderVisible by mutableStateOf(false)
+    private var creditBusy by mutableStateOf(false)
+    private var creditError by mutableStateOf<String?>(null)
+    private var creditSuccess by mutableStateOf(0)
 
     init {
         viewModelScope.launch {
@@ -105,7 +99,10 @@ class AccountsViewModel @Inject constructor(
             reorderVisible = getReorderVisible(),
             compactAccountsModeEnabled = getCompactAccountsMode(),
             hideTotalBalance = getHideTotalBalance(),
-            creditCardsEnabled = getCreditCardsEnabled()
+            creditCardsEnabled = getCreditCardsEnabled(),
+            creditOperationInProgress = creditBusy,
+            creditOperationError = creditError,
+            creditOperationSuccess = creditSuccess,
         )
     }
 
@@ -160,15 +157,62 @@ class AccountsViewModel @Inject constructor(
     }
 
     override fun onEvent(event: AccountsEvent) {
+        if (event is AccountsEvent.ClearCreditError) {
+            creditError = null
+            return
+        }
+        if (event is AccountsEvent.SaveCreditCard || event is AccountsEvent.PayCreditCard || event is AccountsEvent.ResetCreditCard) {
+            if (creditBusy) return
+            creditBusy = true
+            creditError = null
+            viewModelScope.launch {
+                var saved = false
+                try {
+                    ioThread {
+                        when (event) {
+                            is AccountsEvent.SaveCreditCard -> creditCardService.save(event.input)
+                            is AccountsEvent.PayCreditCard -> creditCardService.pay(
+                                event.input, context.getString(R.string.credit_card_payment)
+                            )
+                            is AccountsEvent.ResetCreditCard -> creditCardService.reset(
+                                event.accountId, event.expectedOwed, context.getString(R.string.credit_balance_adjustment)
+                            )
+                            else -> Unit
+                        }
+                    }
+                    // Close the form once persisted, even if refreshing totals subsequently fails.
+                    // Otherwise retrying a new-card form could create a duplicate card.
+                    saved = true
+                    creditSuccess++
+                    startInternally()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    creditError = context.getString(
+                        if (saved) R.string.credit_refresh_failed else R.string.credit_operation_failed
+                    )
+                    if (!saved) {
+                        try {
+                            startInternally()
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            // Keep the original operation error visible and allow a later retry.
+                        }
+                    }
+                } finally {
+                    creditBusy = false
+                }
+            }
+            return
+        }
         viewModelScope.launch(Dispatchers.Default) {
             when (event) {
                 is AccountsEvent.OnReorder -> reorder(event.reorderedList)
                 is AccountsEvent.OnReorderModalVisible -> reorderModalVisible(event.reorderVisible)
                 is AccountsEvent.OnCreateAccount -> createAccount(event.data)
                 is AccountsEvent.OnEditAccount -> editAccount(event.account, event.newBalance)
-                is AccountsEvent.MarkPaidFromAccount ->
-                    markPaidFromAccount(event.card, event.fromAccountId)
-                is AccountsEvent.MarkPaidReset -> markPaidReset(event.card)
+                else -> Unit
             }
         }
     }
@@ -185,55 +229,6 @@ class AccountsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * "Just reset" — bring the credit card's owed balance back to 0 by booking a balancing
-     * income on the card itself. No money leaves any bank account.
-     */
-    private suspend fun markPaidReset(card: AccountData) {
-        val owed = -minOf(0.0, card.balance)
-        if (owed <= 0.0) return
-        walletAccountLogic.adjustBalance(
-            account = card.toLegacyAccount(),
-            actualBalance = card.balance,
-            newBalance = 0.0,
-            adjustTransactionTitle = context.getString(R.string.credit_card_payment)
-        )
-        startInternally()
-    }
-
-    /**
-     * "Pay from account" — book a transfer of the owed amount from a real account into the card,
-     * settling the card (balance back to 0, limit restored) and reducing the paying account.
-     */
-    private suspend fun markPaidFromAccount(card: AccountData, fromAccountId: AccountId) {
-        val owed = -minOf(0.0, card.balance)
-        if (owed <= 0.0) return
-        ioThread {
-            Transaction(
-                type = TransactionType.TRANSFER,
-                accountId = fromAccountId.value,
-                toAccountId = card.account.id.value,
-                amount = owed.toBigDecimal(),
-                toAmount = owed.toBigDecimal(),
-                title = context.getString(R.string.credit_card_payment),
-                dateTime = timeProvider.utcNow()
-            ).toDomain(transactionMapper)?.let {
-                transactionRepository.save(it)
-            }
-        }
-        startInternally()
-    }
-
-    private fun AccountData.toLegacyAccount(): LegacyAccount = LegacyAccount(
-        name = account.name.value,
-        currency = account.asset.code,
-        color = account.color.value,
-        icon = account.icon?.id,
-        orderNum = account.orderNum,
-        includeInBalance = account.includeInBalance,
-        creditLimit = account.creditLimit,
-        id = account.id.value
-    )
 
     private suspend fun reorder(newOrder: List<AccountData>) {
         ioThread {

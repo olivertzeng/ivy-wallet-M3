@@ -1,7 +1,6 @@
 plugins {
     org.jetbrains.kotlin.plugin.compose
     id("ivy.module")
-    id("app.cash.molecule")
 }
 
 android {
@@ -24,7 +23,11 @@ android {
 }
 
 composeCompiler {
-    reportsDestination = layout.buildDirectory.dir("compose_compiler")
+    // Kotlin 2.2.10's report printer crashes on some legacy composable default expressions
+    // (IrSourcePrinterVisitor.printReceiver). Reports are diagnostics, not compilation output.
+    if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
+        reportsDestination = layout.buildDirectory.dir("compose_compiler")
+    }
     metricsDestination = layout.buildDirectory.dir("compose_compiler")
 }
 

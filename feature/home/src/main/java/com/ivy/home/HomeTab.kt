@@ -415,7 +415,6 @@ fun HomeLazyColumn(
                 Spacer(Modifier.height(16.dp))
 
                 CreditCardsSummaryCard(
-                    currency = baseData.baseCurrency,
                     summary = creditSummary,
                     onClick = onCreditClick,
                     modifier = Modifier.animateItem()

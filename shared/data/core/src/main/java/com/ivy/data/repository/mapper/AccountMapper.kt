@@ -29,6 +29,9 @@ class AccountMapper @Inject constructor(
             includeInBalance = includeInBalance,
             orderNum = orderNum,
             creditLimit = creditLimit,
+            creditCardGroupId = creditCardGroupId?.let(::AccountId),
+            creditLimitShared = creditLimitShared,
+            creditExchangeRate = creditExchangeRate,
         )
     }
 
@@ -41,6 +44,9 @@ class AccountMapper @Inject constructor(
             orderNum = orderNum,
             includeInBalance = includeInBalance,
             creditLimit = creditLimit,
+            creditCardGroupId = creditCardGroupId?.value,
+            creditLimitShared = creditLimitShared,
+            creditExchangeRate = creditExchangeRate,
             id = id.value,
             isSynced = true, // TODO: Delete this
         )

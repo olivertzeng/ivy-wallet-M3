@@ -7,6 +7,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.molecule.runtime)
     implementation(projects.shared.ui.core)
 
     // for this module we need test deps as "implementation" and not only "testImplementation"

@@ -25,6 +25,9 @@ data class Account(
     val orderNum: Double = 0.0,
     val includeInBalance: Boolean = true,
     val creditLimit: Double? = null,
+    val creditCardGroupId: UUID? = null,
+    val creditLimitShared: Boolean = false,
+    val creditExchangeRate: Double? = null,
 
     val isSynced: Boolean = false,
     val isDeleted: Boolean = false,
@@ -39,6 +42,9 @@ data class Account(
         orderNum = orderNum,
         includeInBalance = includeInBalance,
         creditLimit = creditLimit,
+        creditCardGroupId = creditCardGroupId,
+        creditLimitShared = creditLimitShared,
+        creditExchangeRate = creditExchangeRate,
         isSynced = isSynced,
         isDeleted = isDeleted,
         id = id
@@ -59,6 +65,9 @@ data class Account(
                 includeInBalance = includeInBalance,
                 orderNum = orderNum,
                 creditLimit = creditLimit,
+                creditCardGroupId = creditCardGroupId?.let(::AccountId),
+                creditLimitShared = creditLimitShared,
+                creditExchangeRate = creditExchangeRate,
             )
         }
     }

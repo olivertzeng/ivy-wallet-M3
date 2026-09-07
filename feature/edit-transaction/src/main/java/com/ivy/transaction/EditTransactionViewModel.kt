@@ -142,7 +142,7 @@ class EditTransactionViewModel @Inject constructor(
     private var accountsChanged = false
 
     private var title: String? = null
-    private lateinit var baseUserCurrency: String
+    private var baseUserCurrency by mutableStateOf("")
     private var tagSearchJob: Job? = null
     private val tagSearchDebounceTimeInMills: Long = 500
 
@@ -193,6 +193,7 @@ class EditTransactionViewModel @Inject constructor(
             initialTitle = getInitialTitle(),
             titleSuggestions = getTitleSuggestions(),
             currency = getCurrency(),
+            accountBaseCurrency = baseUserCurrency,
             description = getDescription(),
             dateTime = getDateTime(),
             dueDate = getDueDate(),

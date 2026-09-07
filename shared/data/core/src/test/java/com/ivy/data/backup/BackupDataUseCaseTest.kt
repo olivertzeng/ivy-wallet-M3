@@ -146,6 +146,29 @@ class BackupDataUseCaseTest {
     }
 
     @Test
+    fun `dual currency card metadata round trips through backup`() = runTest {
+        val id = UUID.randomUUID()
+        val sourceDao = FakeAccountDao()
+        val primary = AccountEntity(name = "Visa", currency = "BDT", color = 1,
+            creditLimit = 100000.0, creditCardGroupId = id, creditLimitShared = true,
+            creditExchangeRate = 120.0, includeInBalance = false, id = id)
+        val secondary = primary.copy(id = UUID.randomUUID(), name = "Visa · USD", currency = "USD",
+            creditLimit = 1000.0, creditLimitShared = false, creditExchangeRate = null)
+        sourceDao.save(primary)
+        sourceDao.save(secondary)
+        val json = newBackupDataUseCase(accountDao = sourceDao).generateJsonBackup()
+        val targetDao = FakeAccountDao()
+        newBackupDataUseCase(accountDao = targetDao).importJson(json, onProgress = {})
+        val result = targetDao.findAll().associateBy { it.id }
+        result[id]?.creditCardGroupId shouldBe id
+        result[id]?.creditLimitShared shouldBe true
+        result[id]?.creditExchangeRate shouldBe 120.0
+        result[secondary.id]?.creditCardGroupId shouldBe id
+        result[secondary.id]?.creditLimit shouldBe 1000.0
+        result[secondary.id]?.currency shouldBe "USD"
+    }
+
+    @Test
     fun `old backup without creditLimit imports as a normal account`() = runTest {
         // given - the 450-150 backup predates credit cards (no creditLimit field in its JSON)
         val accountDao = FakeAccountDao()
@@ -158,6 +181,11 @@ class BackupDataUseCaseTest {
         // then - every imported account is a normal account (null creditLimit), no crash
         val accounts = accountDao.findAll()
         accounts.size shouldBeGreaterThan 0
-        accounts.forEach { it.creditLimit shouldBe null }
+        accounts.forEach {
+            it.creditLimit shouldBe null
+            it.creditCardGroupId shouldBe null
+            it.creditLimitShared shouldBe false
+            it.creditExchangeRate shouldBe null
+        }
     }
 }

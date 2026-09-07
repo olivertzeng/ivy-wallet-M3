@@ -17,4 +17,7 @@ data class AccountsState(
     val compactAccountsModeEnabled: Boolean,
     val hideTotalBalance: Boolean,
     val creditCardsEnabled: Boolean = false,
+    val creditOperationInProgress: Boolean = false,
+    val creditOperationError: String? = null,
+    val creditOperationSuccess: Int = 0,
 )

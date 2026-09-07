@@ -736,9 +736,15 @@ class TransactionsViewModel @Inject constructor(
 
     private suspend fun deleteAccount(accountId: UUID) {
         ioThread {
-            transactionRepository.deleteAllByAccountId(accountId = AccountId(accountId))
-            plannedPaymentRuleWriter.deletedByAccountId(accountId = accountId)
-            accountRepository.deleteById(AccountId(accountId))
+            val selected = accountRepository.findById(AccountId(accountId))
+            val group = selected?.creditCardGroupId
+            val ids = if (group == null) listOf(AccountId(accountId))
+                else accountRepository.findAll().filter { it.creditCardGroupId == group }.map { it.id }
+            ids.forEach { id ->
+                transactionRepository.deleteAllByAccountId(accountId = id)
+                plannedPaymentRuleWriter.deletedByAccountId(accountId = id.value)
+                accountRepository.deleteById(id)
+            }
 
             nav.back()
         }
