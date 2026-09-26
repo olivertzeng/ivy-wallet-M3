@@ -535,7 +535,8 @@ private fun BoxWithConstraintsScope.DeleteModals(
         visible = deleteModal1Visible,
         title = stringResource(R.string.confirm_deletion),
         description = if (account != null) {
-            stringResource(R.string.account_confirm_deletion_description)
+            stringResource(if (account.creditCardGroupId != null) R.string.credit_group_delete_warning
+                else R.string.account_confirm_deletion_description)
         } else {
             stringResource(R.string.category_confirm_deletion_description)
         },

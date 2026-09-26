@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: Detekt
         run: ./gradlew detekt --no-configuration-cache
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --no-configuration-cache
@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: Android Lint (release)
         run: ./gradlew lintRelease --no-configuration-cache
@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: Build demo APK
         run: ./gradlew assembleDemo --no-configuration-cache

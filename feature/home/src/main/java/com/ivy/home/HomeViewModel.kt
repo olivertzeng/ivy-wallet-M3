@@ -399,13 +399,10 @@ class HomeViewModel @Inject constructor(
                 includeTransfersInCalc = false
             )
         )
-        val totalOwed = data.sumOf { -minOf(0.0, it.balance) }
-        val totalLimit = data.sumOf { it.account.creditLimit ?: 0.0 }
+        val grouped = com.ivy.legacy.data.model.groupCreditCards(data)
         creditSummary = CreditCardsSummary(
-            cardCount = data.size,
-            totalOwed = totalOwed,
-            totalLimit = totalLimit,
-            totalLimitLeft = (totalLimit - totalOwed).coerceAtLeast(0.0),
+            cardCount = grouped.size,
+            currencies = com.ivy.legacy.data.model.creditCurrencyTotals(grouped),
         )
     }
 

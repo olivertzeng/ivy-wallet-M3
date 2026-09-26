@@ -182,7 +182,8 @@ fun BoxWithConstraintsScope.AccountModal(
                 Spacer(Modifier.height(16.dp))
 
                 AccountCurrency(
-                    currencyCode = currencyCode
+                    currencyCode = currencyCode,
+                    enabled = account?.creditLimit == null,
                 ) {
                     currencyModalVisible = true
                 }
@@ -327,6 +328,7 @@ private fun save(
 @Composable
 private fun AccountCurrency(
     currencyCode: String,
+    enabled: Boolean = true,
 
     onClick: () -> Unit
 ) {
@@ -335,7 +337,7 @@ private fun AccountCurrency(
             .padding(horizontal = 16.dp)
             .background(UI.colors.medium, UI.shapes.r4)
             .clip(UI.shapes.r4)
-            .clickable {
+            .clickable(enabled = enabled) {
                 onClick()
             }
             .padding(vertical = 24.dp)

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
@@ -17,12 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.layout
@@ -47,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import com.ivy.legacy.datamodel.Account
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
-import com.ivy.frp.test.TestingContext
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.ivyWalletCtx
 import com.ivy.legacy.utils.addKeyboardListener
@@ -61,7 +54,6 @@ import com.ivy.legacy.utils.lerp
 import com.ivy.legacy.utils.navigationBarInsets
 import com.ivy.legacy.utils.onScreenStart
 import com.ivy.legacy.utils.springBounce
-import com.ivy.design.utils.thenIf
 import com.ivy.legacy.utils.verticalSwipeListener
 import com.ivy.base.model.TransactionType
 import com.ivy.legacy.utils.rememberInteractionSource
@@ -77,7 +69,6 @@ import com.ivy.wallet.ui.theme.IvyDark
 import com.ivy.wallet.ui.theme.components.ActionsRow
 import com.ivy.wallet.ui.theme.components.BalanceRow
 import com.ivy.wallet.ui.theme.components.CircleButton
-import com.ivy.wallet.ui.theme.components.ItemIconSDefaultIcon
 import com.ivy.wallet.ui.theme.components.IvyButton
 import com.ivy.wallet.ui.theme.components.IvyIcon
 import com.ivy.wallet.ui.theme.findContrastTextColor
@@ -86,13 +77,14 @@ import com.ivy.wallet.ui.theme.modal.ModalSave
 import com.ivy.wallet.ui.theme.modal.ModalSet
 import com.ivy.wallet.ui.theme.modal.edit.AmountModal
 import com.ivy.wallet.ui.theme.toComposeColor
-import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 const val SWIPE_UP_EXPANDED_THRESHOLD = 200
+
+private enum class AccountPickerTarget { Source, Destination }
 
 @Suppress("LongMethod", "LongParameterList", "UnusedParameter", "ParameterNaming")
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
@@ -105,6 +97,7 @@ fun BoxWithConstraintsScope.EditBottomSheet(
     toAccount: Account?,
     amount: Double,
     currency: String,
+    accountBaseCurrency: String,
     amountModalShown: Boolean,
     setAmountModalShown: (Boolean) -> Unit,
     ActionButton: @Composable () -> Unit,
@@ -116,6 +109,7 @@ fun BoxWithConstraintsScope.EditBottomSheet(
     convertedAmount: Double? = null,
     convertedAmountCurrencyCode: String? = null,
 ) {
+    var accountPickerTarget by remember { mutableStateOf<AccountPickerTarget?>(null) }
     val rootView = LocalView.current
     var keyboardShown by remember { mutableStateOf(false) }
 
@@ -207,12 +201,11 @@ fun BoxWithConstraintsScope.EditBottomSheet(
             percentExpanded = percentExpanded,
             label = label,
             type = type,
-            accounts = accounts,
             selectedAccount = selectedAccount,
             toAccount = toAccount,
-            onSelectedAccountChanged = onSelectedAccountChanged,
-            onToAccountChanged = onToAccountChanged,
-            onAddNewAccount = onAddNewAccount
+            baseCurrency = accountBaseCurrency,
+            onChooseSource = { accountPickerTarget = AccountPickerTarget.Source },
+            onChooseDestination = { accountPickerTarget = AccountPickerTarget.Destination }
         )
 
         val spacerAboveAmount = lerp(40, 16, percentCollapsed)
@@ -295,20 +288,42 @@ fun BoxWithConstraintsScope.EditBottomSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            AccountsRow(
-                accounts = accounts,
-                selectedAccount = selectedAccount,
-                onSelectedAccountChanged = onSelectedAccountChanged,
-                onAddNewAccount = onAddNewAccount,
-                childrenTestTag = "amount_modal_account"
+            AccountSelector(
+                account = selectedAccount,
+                baseCurrency = accountBaseCurrency,
+                onClick = { accountPickerTarget = AccountPickerTarget.Source },
+                modifier = Modifier.padding(horizontal = 24.dp)
+                    .testTag("amount_modal_account"),
             )
         },
-        amountSpacerTop = 48.dp,
+        amountSpacerTop = 32.dp,
         dismiss = {
             setAmountModalShown(false)
         }
     ) {
         onAmountChanged(it)
+    }
+
+    accountPickerTarget?.let { target ->
+        AccountPickerSheet(
+            title = stringResource(
+                when {
+                    target == AccountPickerTarget.Destination -> R.string.choose_to_account
+                    type == TransactionType.TRANSFER -> R.string.choose_from_account
+                    else -> R.string.choose_account
+                }
+            ),
+            accounts = accounts,
+            selectedAccount = if (target == AccountPickerTarget.Source) selectedAccount else toAccount,
+            baseCurrency = accountBaseCurrency,
+            onSelected = if (target == AccountPickerTarget.Source) {
+                onSelectedAccountChanged
+            } else {
+                onToAccountChanged
+            },
+            onAddAccount = onAddNewAccount,
+            onDismiss = { accountPickerTarget = null },
+        )
     }
 }
 
@@ -453,12 +468,11 @@ private fun SheetHeader(
     percentExpanded: Float,
     label: String,
     type: TransactionType,
-    accounts: List<Account>,
     selectedAccount: Account?,
     toAccount: Account?,
-    onSelectedAccountChanged: (Account) -> Unit,
-    onToAccountChanged: (Account) -> Unit,
-    onAddNewAccount: () -> Unit,
+    baseCurrency: String,
+    onChooseSource: () -> Unit,
+    onChooseDestination: () -> Unit,
 ) {
     if (percentExpanded > 0.01f) {
         Column(
@@ -491,12 +505,11 @@ private fun SheetHeader(
 
             Spacer(Modifier.height(if (type == TransactionType.TRANSFER) 8.dp else 16.dp))
 
-            AccountsRow(
-                accounts = accounts,
-                selectedAccount = selectedAccount,
-                onSelectedAccountChanged = onSelectedAccountChanged,
-                onAddNewAccount = onAddNewAccount,
-                childrenTestTag = "from_account"
+            AccountSelector(
+                account = selectedAccount,
+                baseCurrency = baseCurrency,
+                onClick = onChooseSource,
+                modifier = Modifier.padding(horizontal = 24.dp).testTag("from_account"),
             )
 
             if (type == TransactionType.TRANSFER) {
@@ -513,159 +526,14 @@ private fun SheetHeader(
 
                 Spacer(Modifier.height(8.dp))
 
-                AccountsRow(
-                    accounts = accounts,
-                    selectedAccount = toAccount,
-                    onSelectedAccountChanged = onToAccountChanged,
-                    onAddNewAccount = onAddNewAccount,
-                    childrenTestTag = "to_account",
+                AccountSelector(
+                    account = toAccount,
+                    baseCurrency = baseCurrency,
+                    onClick = onChooseDestination,
+                    modifier = Modifier.padding(horizontal = 24.dp).testTag("to_account"),
                 )
             }
         }
-    }
-}
-
-@Composable
-@Suppress("ParameterNaming")
-private fun AccountsRow(
-    accounts: List<Account>,
-    selectedAccount: Account?,
-    onSelectedAccountChanged: (Account) -> Unit,
-    modifier: Modifier = Modifier,
-    childrenTestTag: String? = null,
-    onAddNewAccount: () -> Unit,
-) {
-    val lazyState = rememberLazyListState()
-
-    LaunchedEffect(accounts, selectedAccount) {
-        if (selectedAccount != null) {
-            val selectedIndex = accounts.indexOf(selectedAccount)
-            if (selectedIndex != -1) {
-                launch {
-                    if (TestingContext.inTest) return@launch // breaks UI tests
-
-                    lazyState.scrollToItem(
-                        index = selectedIndex, // +1 because Spacer width 24.dp
-                    )
-                }
-            }
-        }
-    }
-
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        state = lazyState
-    ) {
-        item {
-            Spacer(Modifier.width(24.dp))
-        }
-
-        itemsIndexed(accounts) { _, account ->
-            Account(
-                account = account,
-                selected = selectedAccount == account,
-                testTag = childrenTestTag ?: "account"
-            ) {
-                onSelectedAccountChanged(account)
-            }
-            Spacer(Modifier.width(8.dp))
-        }
-
-        item {
-            AddAccount {
-                onAddNewAccount()
-            }
-        }
-
-        item {
-            Spacer(Modifier.width(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun Account(
-    account: Account,
-    selected: Boolean,
-    testTag: String,
-    onClick: () -> Unit
-) {
-    val accountColor = account.color.toComposeColor()
-    val textColor =
-        if (selected) findContrastTextColor(accountColor) else UI.colors.pureInverse
-
-    val medium = UI.colors.medium
-    val rFull = UI.shapes.rFull
-
-    Row(
-        modifier = Modifier
-            .clip(UI.shapes.rFull)
-            .thenIf(!selected) {
-                border(2.dp, medium, rFull)
-            }
-            .thenIf(selected) {
-                background(accountColor, rFull)
-            }
-            .clickable(onClick = onClick)
-            .testTag(testTag)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(12.dp))
-
-        ItemIconSDefaultIcon(
-            iconName = account.icon,
-            defaultIcon = R.drawable.ic_custom_account_s,
-            tint = textColor
-        )
-
-        Spacer(Modifier.width(4.dp))
-
-        Text(
-            modifier = Modifier.padding(vertical = 10.dp),
-            text = account.name,
-            style = UI.typo.b2.style(
-                color = textColor,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.width(24.dp))
-    }
-}
-
-@Composable
-private fun AddAccount(
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .clip(UI.shapes.rFull)
-            .border(2.dp, UI.colors.medium, UI.shapes.rFull)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.width(12.dp))
-
-        IvyIcon(
-            icon = R.drawable.ic_plus,
-            tint = UI.colors.pureInverse
-        )
-
-        Spacer(Modifier.width(4.dp))
-
-        Text(
-            modifier = Modifier.padding(vertical = 10.dp),
-            text = stringResource(R.string.add_account),
-            style = UI.typo.b2.style(
-                color = UI.colors.pureInverse,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.width(24.dp))
     }
 }
 
@@ -782,7 +650,7 @@ private fun LabelAccountMini(
         Spacer(Modifier.height(2.dp))
 
         Text(
-            text = account?.name?.toUpperCase(Locale.getDefault()) ?: "",
+            text = account?.name?.uppercase(Locale.getDefault()) ?: "",
             style = UI.typo.nB2.style(
                 color = UI.colors.pureInverse,
                 fontWeight = FontWeight.ExtraBold
@@ -820,6 +688,7 @@ private fun Preview() {
                 toAccount = null,
                 amount = 12350.0,
                 currency = "BGN",
+                accountBaseCurrency = "BGN",
                 onAmountChanged = {},
                 onSelectedAccountChanged = {},
                 onToAccountChanged = {},
@@ -859,6 +728,7 @@ private fun Preview_Transfer() {
                 toAccount = acc2,
                 amount = 12350.0,
                 currency = "BGN",
+                accountBaseCurrency = "BGN",
                 onAmountChanged = {},
                 onSelectedAccountChanged = {},
                 onToAccountChanged = {},

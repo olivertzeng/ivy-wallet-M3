@@ -69,7 +69,7 @@ private fun BoxWithConstraintsScope.UI(
 
     // Hosted here (above the bottom bar) rather than inside AccountsTab so the modal's bottom
     // action row — and the amount keypad's "Enter" — aren't occluded by the BottomBar. Used for
-    // both the FAB "add account" and the Accounts tab "add / edit credit card" flows.
+    // the FAB "add account" flow. Credit cards use their own Material3 modal sheets.
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
 
     AnimatedContent(
@@ -84,9 +84,7 @@ private fun BoxWithConstraintsScope.UI(
         with(boxScope) {
             when (currentTab) {
                 MainTab.HOME -> HomeTab()
-                MainTab.ACCOUNTS -> AccountsTab(
-                    openCreditCardModal = { accountModalData = it }
-                )
+                MainTab.ACCOUNTS -> AccountsTab()
             }
         }
     }

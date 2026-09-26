@@ -21,6 +21,7 @@ data class EditTransactionViewState(
     val initialTitle: String?,
     val titleSuggestions: ImmutableSet<String>,
     val currency: String,
+    val accountBaseCurrency: String,
     val description: String?,
     val dateTime: Instant?,
     val dueDate: Instant?,

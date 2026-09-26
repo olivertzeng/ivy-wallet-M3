@@ -1,7 +1,5 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
-    id("org.jetbrains.kotlin.android")
     org.jetbrains.kotlin.plugin.compose
     id("dagger.hilt.android.plugin")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -14,6 +12,7 @@ plugins {
 android {
     namespace = "com.ivy.wallet"
     compileSdk = libs.versions.compile.sdk.get().toInt()
+    buildToolsVersion = libs.versions.build.tools.get()
 
     defaultConfig {
         applicationId = "com.ivym3.wallet"
@@ -106,16 +105,13 @@ android {
     }
 
     val javaVersion = libs.versions.jvm.target.get()
-    kotlinOptions {
-        jvmTarget = javaVersion
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.valueOf("VERSION_$javaVersion")
         targetCompatibility = JavaVersion.valueOf("VERSION_$javaVersion")
     }
 
     buildFeatures {
+        resValues = true
         compose = true
         buildConfig = true
     }

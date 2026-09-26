@@ -12,8 +12,8 @@ sealed interface AccountsEvent {
     data class OnCreateAccount(val data: CreateAccountData) : AccountsEvent
     data class OnEditAccount(val account: Account, val newBalance: Double) : AccountsEvent
 
-    @Suppress("DataClassTypedIDs")
-    data class MarkPaidFromAccount(val card: AccountData, val fromAccountId: AccountId) :
-        AccountsEvent
-    data class MarkPaidReset(val card: AccountData) : AccountsEvent
+    data class SaveCreditCard(val input: com.ivy.legacy.data.model.CreditCardInput) : AccountsEvent
+    data class PayCreditCard(val input: com.ivy.legacy.data.model.CreditCardPaymentInput) : AccountsEvent
+    data class ResetCreditCard(val accountId: AccountId, val expectedOwed: Double) : AccountsEvent
+    data object ClearCreditError : AccountsEvent
 }

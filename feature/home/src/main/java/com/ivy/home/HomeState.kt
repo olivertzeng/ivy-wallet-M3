@@ -49,16 +49,12 @@ data class HomeState(
 @Immutable
 data class CreditCardsSummary(
     val cardCount: Int,
-    val totalOwed: Double,
-    val totalLimit: Double,
-    val totalLimitLeft: Double,
+    val currencies: List<com.ivy.legacy.data.model.CreditCurrencyStats>,
 ) {
     companion object {
         val None = CreditCardsSummary(
             cardCount = 0,
-            totalOwed = 0.0,
-            totalLimit = 0.0,
-            totalLimitLeft = 0.0,
+            currencies = emptyList(),
         )
     }
 }

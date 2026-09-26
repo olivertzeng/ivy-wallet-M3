@@ -225,6 +225,7 @@ private fun BoxWithConstraintsScope.UI(
         toAccount = null,
         amount = state.amount,
         currency = state.currency,
+        accountBaseCurrency = state.accountBaseCurrency,
 
         ActionButton = {
             ModalSet(
@@ -429,6 +430,7 @@ private fun Preview() {
         UI(
             screen = EditPlannedScreen(null, TransactionType.EXPENSE),
             EditPlannedScreenState(
+                accountBaseCurrency = "BGN",
                 oneTime = false,
                 startDate = null,
                 intervalN = null,

@@ -21,4 +21,12 @@ data class Account(
     val includeInBalance: Boolean,
     override val orderNum: Double,
     val creditLimit: Double? = null,
+    /** For a dual-currency card, both accounts point to the primary account's ID. */
+    val creditCardGroupId: AccountId? = null,
+    val creditLimitShared: Boolean = false,
+    /** Units of the primary currency per one unit of the secondary currency. */
+    val creditExchangeRate: Double? = null,
 ) : Identifiable<AccountId>, Reorderable
+
+val Account.isSecondaryCreditCurrency: Boolean
+    get() = creditCardGroupId != null && creditCardGroupId != id
